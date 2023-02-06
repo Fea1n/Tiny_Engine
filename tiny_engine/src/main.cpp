@@ -1,8 +1,8 @@
 #include "application.h"
-#include <cstdlib>
+
 
 int main() {
-    //system("cd ..");
+
     Application app;
     try {
         app.run();

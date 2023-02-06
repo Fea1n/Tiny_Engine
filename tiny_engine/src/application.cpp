@@ -413,11 +413,11 @@ void Application::createInstance() {
 
     VkApplicationInfo applicationInfo;
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    applicationInfo.pApplicationName = "Renderer";
+    applicationInfo.pApplicationName = "tiny engine";
     applicationInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     applicationInfo.pEngineName = "No Engine";
     applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0 , 0);
-    applicationInfo.apiVersion = VK_API_VERSION_1_2;
+    applicationInfo.apiVersion = VK_API_VERSION_1_3;
 
     // Grab the needed Vulkan extensions. This also initializes the list of required extensions
     requiredExtensions = getRequiredExtensions();
