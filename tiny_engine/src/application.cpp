@@ -22,6 +22,9 @@ Application::~Application() {
                          uiCommandBuffers.data());
     vkDestroyCommandPool(logicalDevice, uiCommandPool, nullptr);
     vkDestroyRenderPass(logicalDevice, uiRenderPass, nullptr);
+    //«Â¿Ì∂•µ„ª∫¥Ê
+    vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+    vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
 
     for (auto framebuffer : uiFramebuffers) {
         vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
@@ -185,14 +188,52 @@ void Application::createCommandBuffers() {
 
         // Begin recording commands into the command buffer
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+        VkBuffer vertexBuffers[] = { vertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+        vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
         vkCmdEndRenderPass(commandBuffers[i]);
 
         if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to record command buffers!");
         }
     }
+}
+
+
+void Application::createVertexBuffer() {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(vertices[0]) * vertices.size();
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create vertex buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(logicalDevice, vertexBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate vertex buffer memory!");
+    }
+
+    vkBindBufferMemory(logicalDevice, vertexBuffer, vertexBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(logicalDevice, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    memcpy(data, vertices.data(), (size_t)bufferInfo.size);
+    vkUnmapMemory(logicalDevice, vertexBufferMemory);
 }
 
 void Application::createCommandPool() {
@@ -269,10 +310,18 @@ void Application::createGraphicsPipeline() {
     // TODO: Adjust this so that we actually take input from a vertex buffer
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
+    //vertexInputInfo.vertexBindingDescriptionCount = 0;
+    //vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    //vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    //vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
     // Create information struct about input assembly
     // We'll be organizing our vertices in triangles and the GPU should treat the data accordingly
@@ -993,6 +1042,7 @@ void Application::initVulkan() {
     createGraphicsPipeline();
     createFramebuffers();
     createCommandPool();
+    createVertexBuffer();
     createCommandBuffers();
     createSyncObjects();
     createDescriptorPool();
