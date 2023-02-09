@@ -190,6 +190,7 @@ void Application::createInstance() {
     applicationInfo.pEngineName = "No Engine";
     applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     applicationInfo.apiVersion = VK_API_VERSION_1_3;
+    applicationInfo.pNext = nullptr;
 
     // Grab the needed Vulkan extensions. This also initializes the list of required extensions
     requiredExtensions = getRequiredExtensions();
@@ -479,8 +480,7 @@ void Application::createGraphicsPipeline() {
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-    // Create information struct for vertex input
-    // TODO: Adjust this so that we actually take input from a vertex buffer
+
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     auto bindingDescription = Vertex::getBindingDescription();
@@ -491,13 +491,7 @@ void Application::createGraphicsPipeline() {
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-    //vertexInputInfo.vertexBindingDescriptionCount = 0;
-    //vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    //vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    //vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
-    // Create information struct about input assembly
-    // We'll be organizing our vertices in triangles and the GPU should treat the data accordingly
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo = {};
     inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
