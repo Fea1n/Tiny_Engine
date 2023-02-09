@@ -8,7 +8,11 @@
 #include <string>
 #include <vector>
 
-#include<glm/glm.hpp>
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <chrono>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -28,6 +32,68 @@ public:
     void run();
 
 private:
+    const uint32_t WINDOW_WIDTH = 1200;
+    const uint32_t WINDOW_HEIGHT = 900;
+
+#ifdef NDEBUG
+    const bool enableValidationLayers = false;
+#else
+    const bool enableValidationLayers = true;
+#endif
+    GLFWwindow* window;
+
+    VkInstance instance;
+    VkPhysicalDevice physicalDevice;
+    VkDevice logicalDevice;
+
+    VkQueue graphicsQueue;
+    VkQueue presentQueue;
+
+    VkSurfaceKHR surface;
+
+    VkSwapchainKHR swapchain;
+    std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+    VkExtent2D swapchainExtent;
+    VkFormat swapchainImageFormat;
+    std::vector<VkFramebuffer> swapchainFramebuffers;
+    std::vector<VkFramebuffer> uiFramebuffers;
+
+    VkRenderPass renderPass;
+    VkRenderPass uiRenderPass;
+
+    VkDescriptorSetLayout descriptorSetLayout;
+
+    VkPipeline graphicsPipeline;
+    VkPipelineLayout graphicsPipelineLayout;
+
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
+
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
+
+    VkCommandPool commandPool;
+    VkCommandPool uiCommandPool;
+    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkCommandBuffer> uiCommandBuffers;
+
+    uint32_t imageCount = 0;
+    uint32_t currentFrame = 0;
+    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkFence> inFlightFences;
+    std::vector<VkFence> imagesInFlight;
+
+    VkDescriptorPool descriptorPool;
+    std::vector<VkDescriptorSet> descriptorSets;
+
+    VkDescriptorPool uiDescriptorPool;
+
     //列族
     struct QueueFamilyIndices {
         uint32_t graphicsFamilyIndex;
@@ -40,6 +106,25 @@ private:
         std::vector<VkSurfaceFormatKHR> surfaceFormats;
         std::vector<VkPresentModeKHR> presentModes;
     };
+
+    bool framebufferResized = false;
+
+    std::vector<const char*> requiredExtensions;
+
+    const std::array<const char*, 1> validationLayers = {
+        "VK_LAYER_KHRONOS_validation",
+    };
+
+    const std::array<const char*, 1> deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+
+    QueueFamilyIndices queueIndices;
+
+    // Debug utilities
+    VkDebugUtilsMessengerEXT debugMessenger;
+
+ 
     //debug信使
     static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                                  const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -175,78 +260,13 @@ private:
 
     void setupDebugMessenger();
 
-    const uint32_t WINDOW_WIDTH = 1200;
-    const uint32_t WINDOW_HEIGHT = 900;
+    void createDescriptorSetLayout();
 
-    GLFWwindow *window;
+    void createUniformBuffers();
 
-    VkInstance instance;
-    VkPhysicalDevice physicalDevice;
-    VkDevice logicalDevice;
+    void updateUniformBuffer(uint32_t currentImage);
 
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
-
-    VkSurfaceKHR surface;
-
-    VkSwapchainKHR swapchain;
-    std::vector<VkImage> swapchainImages;
-    std::vector<VkImageView> swapchainImageViews;
-    VkExtent2D swapchainExtent;
-    VkFormat swapchainImageFormat;
-    std::vector<VkFramebuffer> swapchainFramebuffers;
-    std::vector<VkFramebuffer> uiFramebuffers;
-
-    VkRenderPass renderPass;
-    VkRenderPass uiRenderPass;
-
-    VkPipeline graphicsPipeline;
-    VkPipelineLayout graphicsPipelineLayout;
-
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
-
-
-    VkCommandPool commandPool;
-    VkCommandPool uiCommandPool;
-    std::vector<VkCommandBuffer> commandBuffers;
-    std::vector<VkCommandBuffer> uiCommandBuffers;
-
-    uint32_t imageCount = 0;
-    uint32_t currentFrame = 0;
-    const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    std::vector<VkFence> imagesInFlight;
-
-    VkDescriptorPool descriptorPool;
-    VkDescriptorPool uiDescriptorPool;
-
-    bool framebufferResized = false;
-
-    std::vector<const char*> requiredExtensions;
-
-    const std::array<const char*, 1> validationLayers = {
-        "VK_LAYER_KHRONOS_validation",
-    };
-
-    const std::array<const char*, 1> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-
-    QueueFamilyIndices queueIndices;
-
-    // Debug utilities
-    VkDebugUtilsMessengerEXT debugMessenger;
-    #ifdef NDEBUG
-        const bool enableValidationLayers = false;
-    #else
-        const bool enableValidationLayers = true;
-    #endif
-
+    void createDescriptorSets();
 
     //顶点结构
     struct Vertex {
@@ -279,6 +299,13 @@ private:
         }
     };
 
+    //alignas
+    struct UniformBufferObject {
+        alignas(16) glm::mat4 model;
+        alignas(16) glm::mat4 view;
+        alignas(16) glm::mat4 proj;
+    };
+
     const std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
         {{0.5f, -0.5f}, {0.0f, 1.0f, .0f}},
@@ -289,6 +316,8 @@ private:
     const std::vector<uint16_t> indices = {
     0, 1, 2, 2, 3, 0
     };
+
+
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
