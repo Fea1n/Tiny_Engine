@@ -127,14 +127,9 @@ Application::~Application() {
     vkDestroyCommandPool(logicalDevice, uiCommandPool, nullptr);
     vkDestroyRenderPass(logicalDevice, uiRenderPass, nullptr);
 
-
-
     for (auto framebuffer : uiFramebuffers) {
         vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
     }
-
-    // «Â¿Ìvulkan
-    vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
         vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
