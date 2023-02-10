@@ -1,5 +1,7 @@
 #include "application.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 //初始化
 Application::Application() {
@@ -7,7 +9,6 @@ Application::Application() {
     initVulkan();
     initUI();
 }
-
 
 //初始化窗口
 void Application::initWindow() {
@@ -31,12 +32,12 @@ void Application::initWindow() {
     }
 }
 
-
 //初始化vulkan
 void Application::initVulkan() {
     createInstance();
     setupDebugMessenger();
     createSurface();
+    //to do 
     physicalDevice = pickPhysicalDevice();
     getDeviceQueueIndices();
     createLogicalDevice();
@@ -47,6 +48,11 @@ void Application::initVulkan() {
     createGraphicsPipeline();
     createFramebuffers();
     createCommandPool();
+
+    createTextureImage();
+    createTextureImageView();
+    createTextureSampler();
+
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
@@ -56,7 +62,6 @@ void Application::initVulkan() {
     createSyncObjects();
 
 }
-
 
 //主循环
 void Application::run() {
@@ -69,7 +74,6 @@ void Application::run() {
     // Wait for unfinished work on GPU before ending application
     vkDeviceWaitIdle(logicalDevice);
 }
-
 
 //清理交换链资源
 void Application::cleanupSwapchain() {
@@ -90,7 +94,6 @@ void Application::cleanupSwapchain() {
 
     vkDestroySwapchainKHR(logicalDevice, swapchain, nullptr);
 }
-
 
 //清理实例
 Application::~Application() {
@@ -118,12 +121,16 @@ Application::~Application() {
     vkDestroyBuffer(logicalDevice, indexBuffer, nullptr);
     vkFreeMemory(logicalDevice, indexBufferMemory, nullptr);
 
+    //清理图片
+    vkDestroySampler(logicalDevice, textureSampler, nullptr);
+    vkDestroyImageView(logicalDevice, textureImageView, nullptr);
+    vkDestroyImage(logicalDevice, textureImage, nullptr);
+    vkFreeMemory(logicalDevice, textureImageMemory, nullptr);
 
     //清理顶点缓存
     vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
     vkFreeMemory(logicalDevice, vertexBufferMemory, nullptr);
-    vkFreeCommandBuffers(logicalDevice, uiCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()),
-        uiCommandBuffers.data());
+    vkFreeCommandBuffers(logicalDevice, uiCommandPool, static_cast<uint32_t>(uiCommandBuffers.size()),uiCommandBuffers.data());
     vkDestroyCommandPool(logicalDevice, uiCommandPool, nullptr);
     vkDestroyRenderPass(logicalDevice, uiRenderPass, nullptr);
 
@@ -161,7 +168,6 @@ Application::~Application() {
     glfwTerminate();
 }
 
-
 //重建交换链
 void Application::recreateSwapchain() {
     int width = 0, height = 0;
@@ -191,7 +197,6 @@ void Application::recreateSwapchain() {
     createUICommandBuffers();
     createUIFramebuffers();
 }
-
 
 //创建实例
 void Application::createInstance() {
@@ -236,7 +241,6 @@ void Application::createInstance() {
     }
 }
 
-
 //创建调试信使
 void Application::setupDebugMessenger() {
     if (!enableValidationLayers) {
@@ -251,14 +255,12 @@ void Application::setupDebugMessenger() {
     }
 }
 
-
 //创建表面
 void Application::createSurface() {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create window surface!");
     }
 }
-
 
 //挑选物理设备
 VkPhysicalDevice Application::pickPhysicalDevice() {
@@ -296,7 +298,6 @@ VkPhysicalDevice Application::pickPhysicalDevice() {
     return physicalDevices[0];
 }
 
-
 //创建逻辑设备
 void Application::createLogicalDevice() {
     // Setup our Command Queues
@@ -311,18 +312,17 @@ void Application::createLogicalDevice() {
         queueInfo.pQueuePriorities = &priority;
         queueCreateInfos.push_back(queueInfo);
     }
+    VkPhysicalDeviceFeatures physicalDeviceFeatures = {};
+    physicalDeviceFeatures.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo deviceInfo = {};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-
     deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     deviceInfo.pQueueCreateInfos = queueCreateInfos.data();
-
     deviceInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
     deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-    VkPhysicalDeviceFeatures physicalDeviceFeatures = {}; // TODO Specify features
     deviceInfo.pEnabledFeatures = &physicalDeviceFeatures;
+    
 
     if (enableValidationLayers) {
         deviceInfo.enabledLayerCount = validationLayers.size();
@@ -398,33 +398,13 @@ void Application::createSwapchain() {
     vkGetSwapchainImagesKHR(logicalDevice, swapchain, &swapchainCount, swapchainImages.data());
 }
 
-
 //创建视图
 void Application::createImageViews() {
     swapchainImageViews.resize(swapchainImages.size());
     for (size_t i = 0; i < swapchainImages.size(); ++i) {
-        VkImageViewCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = swapchainImages[i];
-        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format = swapchainImageFormat;
-        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // We do not enable mip-mapping
-        createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1;
-        createInfo.subresourceRange.layerCount = 1;
-
-        if (vkCreateImageView(logicalDevice, &createInfo, nullptr,
-            &swapchainImageViews[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Unable to create image views!");
-        }
+        swapchainImageViews[i] = createImageView(swapchainImages[i], swapchainImageFormat);
     }
 }
-
 
 //创建渲染通道
 void Application::createRenderPass() {
@@ -471,7 +451,6 @@ void Application::createRenderPass() {
         throw std::runtime_error("Could not create render pass!");
     }
 }
-
 
 //创建图形管道
 void Application::createGraphicsPipeline() {
@@ -615,7 +594,6 @@ void Application::createGraphicsPipeline() {
     vkDestroyShaderModule(logicalDevice, fragShaderModule, nullptr);
 }
 
-
 //创建帧缓冲
 void Application::createFramebuffers() {
     swapchainFramebuffers.resize(swapchainImageViews.size());
@@ -639,7 +617,6 @@ void Application::createFramebuffers() {
     }
 }
 
-
 //创建指令池
 void Application::createCommandPool() {
     VkCommandPoolCreateInfo createInfo = {};
@@ -650,7 +627,6 @@ void Application::createCommandPool() {
         throw std::runtime_error("Unable to create command pool!");
     }
 }
-
 
 //创建顶点缓冲
 void Application::createVertexBuffer() {
@@ -694,7 +670,6 @@ void Application::createIndexBuffer() {
     vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
-
 // 创建缓冲辅助函数
 void Application::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
     VkBufferCreateInfo bufferInfo{};
@@ -722,28 +697,41 @@ void Application::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMe
     vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0);
 }
 
-
 //复制缓冲
 void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);
 
     VkBufferCopy copyRegion{};
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
+    endSingleTimeCommands(commandBuffer,commandPool);
+}
+
+//再次记录
+VkCommandBuffer Application::beginSingleTimeCommands(VkCommandPool cmdPool) {
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = cmdPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer = {};
+    vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("Could not create one-time command buffer!");
+    }
+
+    return commandBuffer;
+}
+
+//命令缓冲区
+void Application::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) {
     vkEndCommandBuffer(commandBuffer);
 
     VkSubmitInfo submitInfo{};
@@ -754,10 +742,8 @@ void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSiz
     vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphicsQueue);
 
-    vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(logicalDevice, cmdPool, 1, &commandBuffer);
 }
-
-
 
 //创建指令缓冲
 void Application::createCommandBuffers() {
@@ -817,7 +803,6 @@ void Application::createCommandBuffers() {
     }
 }
 
-
 //创建同步对象
 void Application::createSyncObjects() {
     // Create our semaphores and fences for synchronizing the GPU and CPU
@@ -851,7 +836,7 @@ void Application::createSyncObjects() {
     }
 }
 
-
+//统一缓存
 void Application::updateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -945,7 +930,6 @@ void Application::drawFrame() {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-
 //着色器模块
 VkShaderModule Application::createShaderModule(const std::vector<char>& shaderCode) {
     VkShaderModuleCreateInfo createInfo = {};
@@ -961,7 +945,6 @@ VkShaderModule Application::createShaderModule(const std::vector<char>& shaderCo
     return shaderModule;
 }
 
-
 //选择交换链条展示模式
 VkPresentModeKHR Application::pickSwapchainPresentMode(const std::vector<VkPresentModeKHR>& presentModes) {
     // Look for triple-buffering present mode if available
@@ -974,7 +957,6 @@ VkPresentModeKHR Application::pickSwapchainPresentMode(const std::vector<VkPrese
     // Use FIFO mode as our fallback, since it's the only guaranteed mode
     return VK_PRESENT_MODE_FIFO_KHR;
 }
-
 
 //查找上下文
 VkExtent2D Application::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities) {
@@ -991,7 +973,6 @@ VkExtent2D Application::pickSwapchainExtent(const VkSurfaceCapabilitiesKHR& surf
     }
 }
 
-
 //选择交换链格式
 VkSurfaceFormatKHR Application::pickSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) {
     for (VkSurfaceFormatKHR availableFormat : formats) {
@@ -1005,7 +986,6 @@ VkSurfaceFormatKHR Application::pickSwapchainSurfaceFormat(const std::vector<VkS
     // TODO Could establish a ranking and pick best one
     return formats[0];
 }
-
 
 //查询交换链支持
 Application::SwapchainConfiguration Application::querySwapchainSupport(const VkPhysicalDevice& device) {
@@ -1035,7 +1015,6 @@ Application::SwapchainConfiguration Application::querySwapchainSupport(const VkP
     return config;
 }
 
-
 //查看物理设备是否适合
 bool Application::isDeviceSuitable(VkPhysicalDevice device) {
     VkPhysicalDeviceProperties properties;
@@ -1049,9 +1028,12 @@ bool Application::isDeviceSuitable(VkPhysicalDevice device) {
         swapChainAdequate = !swapchainConfig.presentModes.empty() && !swapchainConfig.surfaceFormats.empty();
     }
 
+    //查看是否支持各项异性
+    VkPhysicalDeviceFeatures supportedFeatures;
+    vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
     return swapChainAdequate && extensionsSupported && properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
 }
-
 
 //查看设备扩展
 bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
@@ -1070,7 +1052,6 @@ bool Application::checkDeviceExtensions(VkPhysicalDevice device) {
 
     return requiredDeviceExtensions.empty();
 }
-
 
 //获取设备列族
 void Application::getDeviceQueueIndices() {
@@ -1098,7 +1079,6 @@ void Application::getDeviceQueueIndices() {
     }
 }
 
-
 //获得可以需要的扩展
 std::vector<const char*> Application::getRequiredExtensions() const {
     uint32_t glfwExtensionCount = 0;
@@ -1115,7 +1095,6 @@ std::vector<const char*> Application::getRequiredExtensions() const {
     }
     return extensions;
 }
-
 
 //查看验证层支持
 bool Application::checkValidationLayerSupport() {
@@ -1141,7 +1120,6 @@ bool Application::checkValidationLayerSupport() {
     return true;
 }
 
-
 //创建描述符布局
 void Application::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
@@ -1151,16 +1129,23 @@ void Application::createDescriptorSetLayout() {
     uboLayoutBinding.pImmutableSamplers = nullptr;
     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
 
     if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
-};
-
+}
 
 //创建描述符缓冲区
 void Application::createUniformBuffers() {
@@ -1177,22 +1162,27 @@ void Application::createUniformBuffers() {
     }
 }
 
+//创建描述符池
 void Application::createDescriptorPool() {
-    VkDescriptorPoolSize poolSize = {};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    VkDescriptorPoolCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    createInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    createInfo.poolSizeCount = 1;
-    createInfo.pPoolSizes = &poolSize;
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkCreateDescriptorPool(logicalDevice, &createInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+    //todo 
+    if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("Unable to create descriptor pool!");
     }
 }
 
+//创建描述符集
 void Application::createDescriptorSets() {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -1212,56 +1202,219 @@ void Application::createDescriptorSets() {
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSets[i];
-        descriptorWrite.dstBinding = 0;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pBufferInfo = &bufferInfo;
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = textureImageView;
+        imageInfo.sampler = textureSampler;
 
-        vkUpdateDescriptorSets(logicalDevice, 1, &descriptorWrite, 0, nullptr);
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 
 };
 
+//创建纹理图像part
+void Application::createTextureImage() {
+    int texWidth, texHeight, texChannels;
+    stbi_uc* pixels = stbi_load("textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-VkCommandBuffer Application::beginSingleTimeCommands(VkCommandPool cmdPool) {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = cmdPool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer = {};
-    vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-        throw std::runtime_error("Could not create one-time command buffer!");
+    if (!pixels) {
+        throw std::runtime_error("failed to load texture image!");
     }
 
-    return commandBuffer;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(logicalDevice, stagingBufferMemory);
+
+    stbi_image_free(pixels);
+
+    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+    vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+};
+
+//创建纹理视图
+void Application::createTextureImageView() {
+    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+};
+
+//创建纹理采样器
+void Application::createTextureSampler() {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+    if (vkCreateSampler(logicalDevice, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture sampler!");
+    }
+};
+
+VkImageView Application::createImageView(VkImage image, VkFormat format) {
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VkImageView imageView;
+    if (vkCreateImageView(logicalDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create texture image view!");
+    }
+    return imageView;
+};
+
+void Application::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = {
+        width,
+        height,
+        1
+    };
+
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    endSingleTimeCommands(commandBuffer,commandPool);
+};
+
+//常见图像
+void Application::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(logicalDevice, image, imageMemory, 0);
 }
 
-void Application::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool cmdPool) {
-    vkEndCommandBuffer(commandBuffer);
+//转换图像布局
+void Application::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
 
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
 
-    vkFreeCommandBuffers(logicalDevice, cmdPool, 1, &commandBuffer);
-}
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else {
+        throw std::invalid_argument("unsupported layout transition!");
+    }
+
+    vkCmdPipelineBarrier(commandBuffer,sourceStage, destinationStage,0,0, nullptr,0, nullptr,1, &barrier);
+
+    endSingleTimeCommands(commandBuffer,commandPool);
+};
+
+
+
+//UIpart
 void Application::cleanupUIResources() {
     for (auto framebuffer : uiFramebuffers) {
         vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
@@ -1478,7 +1631,6 @@ void Application::drawUI() {
 
     ImGui::Render();
 }
-
 
 //关键词回调
 void Application::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {

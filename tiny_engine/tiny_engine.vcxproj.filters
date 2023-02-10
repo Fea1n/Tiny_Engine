@@ -81,5 +81,11 @@
     <None Include="compile.bat">
       <Filter>源文件</Filter>
     </None>
+    <None Include="imgui.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="textures\texture.jpg">
+      <Filter>资源文件</Filter>
+    </Image>
   </ItemGroup>
 </Project>
