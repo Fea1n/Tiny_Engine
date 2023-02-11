@@ -6,5 +6,4 @@ D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1147,48): warning C4267:
 D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1151,48): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
   main.cpp
   正在生成代码...
-LINK : warning LNK4098: 默认库“MSVCRT”与其他库的使用冲突；请使用 /NODEFAULTLIB:library
   tiny_engine.vcxproj -> D:\Git_Repo\Tiny_Engine\tiny_engine\x64\Debug\tiny_engine.exe

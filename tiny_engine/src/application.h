@@ -55,7 +55,27 @@ static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugU
     }
 }
 
+static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
+    const VkAllocationCallbacks* pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
 
+//列族配置
+struct QueueFamilyIndices {
+    uint32_t graphicsFamilyIndex;
+    uint32_t computeFamilyIndex;
+    uint32_t presentFamilyIndex;
+};
+
+//交换链配置
+struct SwapchainConfiguration {
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> surfaceFormats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
 
 //顶点结构
 struct Vertex {
@@ -106,6 +126,12 @@ namespace std {
     };
 }
 
+//alignas
+struct UniformBufferObject {
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+};
 
 class Application {
 public:
@@ -116,13 +142,6 @@ public:
     void run();
 
 private:
-
-    //alignas
-    struct UniformBufferObject {
-        alignas(16) glm::mat4 model;
-        alignas(16) glm::mat4 view;
-        alignas(16) glm::mat4 proj;
-    };
 
     GLFWwindow* window;
 
@@ -190,25 +209,9 @@ private:
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
 
-
-
-    //列族结构
-    struct QueueFamilyIndices {
-        uint32_t graphicsFamilyIndex;
-        uint32_t computeFamilyIndex;
-        uint32_t presentFamilyIndex;
-    };
-    //交换链配置
-    struct SwapchainConfiguration {
-        VkSurfaceCapabilitiesKHR capabilities;
-        std::vector<VkSurfaceFormatKHR> surfaceFormats;
-        std::vector<VkPresentModeKHR> presentModes;
-    };
-
     bool framebufferResized = false;
 
     std::vector<const char*> requiredExtensions;
-
 
     QueueFamilyIndices queueIndices;
 
@@ -225,14 +228,6 @@ private:
         std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
 
         return VK_FALSE;
-    }
-
-    static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
-                                              const VkAllocationCallbacks* pAllocator) {
-        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-        if (func != nullptr) {
-            func(instance, debugMessenger, pAllocator);
-        }
     }
 
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);

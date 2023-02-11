@@ -1062,7 +1062,7 @@ VkSurfaceFormatKHR Application::pickSwapchainSurfaceFormat(const std::vector<VkS
 }
 
 //查询交换链支持
-Application::SwapchainConfiguration Application::querySwapchainSupport(const VkPhysicalDevice& device) {
+SwapchainConfiguration Application::querySwapchainSupport(const VkPhysicalDevice& device) {
     SwapchainConfiguration config = {};
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &config.capabilities);
 
