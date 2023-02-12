@@ -1,8 +1,7 @@
 ﻿  application.cpp
-D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(339,63): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
-D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1142,49): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
-D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1148,89): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
-D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1150,48): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
-D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1154,48): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
-LINK : warning LNK4098: 默认库“MSVCRT”与其他库的使用冲突；请使用 /NODEFAULTLIB:library
+D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(343,63): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1167,49): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1173,89): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1175,48): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+D:\Git_Repo\Tiny_Engine\tiny_engine\src\application.cpp(1179,48): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
   tiny_engine.vcxproj -> D:\Git_Repo\Tiny_Engine\tiny_engine\x64\Debug\tiny_engine.exe
